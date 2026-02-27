@@ -1,19 +1,24 @@
-import React from 'react';
+import React, { useState } from 'react';
 import Globe3D from './components/Globe3D';
 import LocalMap3D from './components/LocalMap3D';
+import MapboxView from './components/MapboxView';
 import { useSocket } from './hooks/useSocket';
 import {
   Activity, Bell, Compass, LayoutDashboard,
-  Settings, Map, Search, Monitor, AlertTriangle, ArrowLeft, Wifi
+  Settings, Map, Search, Monitor, AlertTriangle, ArrowLeft, Wifi, Sun, Moon
 } from 'lucide-react';
 import useOutbreakStore from './store/outbreakStore';
 
 function App() {
   useSocket();
+  const [mapTheme, setMapTheme] = useState('dark');
+  const [globeTheme, setGlobeTheme] = useState('dark');
   const {
     summary, realtimeUpdates, toggleRealtimeUpdates,
     outbreaks, viewMode, setViewMode, selectedOutbreak, selectOutbreak
   } = useOutbreakStore();
+
+  const isDark = mapTheme === 'dark';
 
   const criticalCount = outbreaks.filter(o => o.severity >= 80).length;
 
@@ -39,24 +44,30 @@ function App() {
     */
     <div className="relative w-full h-screen overflow-hidden bg-[#050B14] text-gray-200">
 
-      {/* ── 3D GLOBE / LOCAL MAP (fullscreen, z-0, receives all pointer events) ── */}
+      {/* ── 3D GLOBE / MAPBOX MAP (fullscreen, z-0, receives all pointer events) ── */}
       <div className="absolute inset-0 z-0">
-        {viewMode === 'global' ? <Globe3D /> : <LocalMap3D />}
+        {viewMode === 'global' && <Globe3D globeTheme={globeTheme} />}
+        {viewMode === 'local' && <LocalMap3D />}
+        {viewMode === 'mapbox' && <MapboxView mapTheme={mapTheme} />}
       </div>
 
-      {/* ── VIGNETTE OVERLAYS — pointer-events-none so globe stays interactive ── */}
+      {/* Vignette overlays — in mapbox mode suppress right+bottom edges to keep card clear */}
       <div
         className="absolute inset-0 pointer-events-none"
         style={{
           zIndex: 1,
-          background: 'linear-gradient(to right, rgba(5,11,20,0.92) 0%, rgba(5,11,20,0.1) 35%, rgba(5,11,20,0.1) 65%, rgba(5,11,20,0.92) 100%)',
+          background: viewMode === 'mapbox'
+            ? 'linear-gradient(to right, rgba(5,11,20,0.92) 0%, rgba(5,11,20,0.1) 35%, transparent 60%, transparent 100%)'
+            : 'linear-gradient(to right, rgba(5,11,20,0.92) 0%, rgba(5,11,20,0.1) 35%, rgba(5,11,20,0.1) 65%, rgba(5,11,20,0.92) 100%)',
         }}
       />
       <div
         className="absolute inset-0 pointer-events-none"
         style={{
           zIndex: 1,
-          background: 'linear-gradient(to bottom, rgba(5,11,20,0.85) 0%, transparent 20%, transparent 80%, rgba(5,11,20,0.85) 100%)',
+          background: viewMode === 'mapbox'
+            ? 'linear-gradient(to bottom, rgba(5,11,20,0.85) 0%, transparent 20%, transparent 100%)'
+            : 'linear-gradient(to bottom, rgba(5,11,20,0.85) 0%, transparent 20%, transparent 80%, rgba(5,11,20,0.85) 100%)',
         }}
       />
 
@@ -91,7 +102,46 @@ function App() {
 
           {/* ── TOP NAV ── */}
           <div className="pointer-events-auto flex items-center justify-between px-8 h-16 border-b border-white/5 backdrop-blur-sm bg-[#07101e]/40">
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-3">
+              {/* Globe mode: Light/Dark earth toggle */}
+              {viewMode === 'global' && (
+                <button
+                  onClick={() => setGlobeTheme(t => t === 'dark' ? 'light' : 'dark')}
+                  className="flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-full border transition-all hover:scale-105 active:scale-95"
+                  style={{
+                    background: globeTheme === 'dark' ? 'rgba(0,243,255,0.08)' : 'rgba(255,255,255,0.88)',
+                    color: globeTheme === 'dark' ? '#00f3ff' : '#0c4a6e',
+                    borderColor: globeTheme === 'dark' ? 'rgba(0,243,255,0.25)' : 'rgba(12,74,110,0.3)',
+                  }}
+                  title={globeTheme === 'dark' ? 'Switch to day view' : 'Switch to night view'}
+                >
+                  {globeTheme === 'dark' ? <Sun size={13} /> : <Moon size={13} />}
+                  {globeTheme === 'dark' ? 'Day View' : 'Night View'}
+                </button>
+              )}
+              {/* Mapbox mode: Back to Globe + Light/Dark toggle in the header */}
+              {viewMode === 'mapbox' && (
+                <>
+                  <button
+                    onClick={() => setViewMode('global')}
+                    className="flex items-center gap-2 text-sm font-semibold text-gray-300 hover:text-white bg-white/5 hover:bg-white/10 border border-white/10 px-3 py-1.5 rounded-full transition-all"
+                  >
+                    <ArrowLeft size={14} /> Globe
+                  </button>
+                  <button
+                    onClick={() => setMapTheme(t => t === 'dark' ? 'light' : 'dark')}
+                    className="flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-full border transition-all hover:scale-105"
+                    style={{
+                      background: isDark ? 'rgba(0,243,255,0.08)' : 'rgba(255,255,255,0.88)',
+                      color: isDark ? '#00f3ff' : '#1e3a5f',
+                      borderColor: isDark ? 'rgba(0,243,255,0.25)' : 'rgba(30,58,95,0.2)',
+                    }}
+                  >
+                    {isDark ? <Sun size={13} /> : <Moon size={13} />}
+                    {isDark ? 'Light' : 'Dark'}
+                  </button>
+                </>
+              )}
               {viewMode === 'local' && (
                 <button
                   onClick={() => setViewMode('global')}
@@ -102,17 +152,14 @@ function App() {
               )}
               <h1 className="text-lg font-semibold text-white tracking-wide">Health Logistics</h1>
               <div className="flex gap-1 text-xs text-gray-500 ml-2">
-                <span
-                  className="hover:text-white cursor-pointer transition-colors"
-                  onClick={() => setViewMode('global')}
-                >Map</span>
+                <span className="hover:text-white cursor-pointer transition-colors" onClick={() => setViewMode('global')}>Map</span>
                 <span>/</span>
                 <span className="hover:text-white cursor-pointer">Regions</span>
+                {viewMode === 'mapbox' && (
+                  <><span>/</span><span className="text-cyan-400">{selectedOutbreak?.locationName || 'City View'}</span></>
+                )}
                 {viewMode === 'local' && (
-                  <>
-                    <span>/</span>
-                    <span className="text-blue-400">{selectedOutbreak?.locationName || 'Local'}</span>
-                  </>
+                  <><span>/</span><span className="text-blue-400">{selectedOutbreak?.locationName || 'Local'}</span></>
                 )}
               </div>
             </div>
@@ -184,7 +231,15 @@ function App() {
                     return (
                       <div
                         key={o.id}
-                        onClick={() => { selectOutbreak(o); if (viewMode !== 'global') setViewMode('global'); }}
+                        onClick={() => {
+                          selectOutbreak(o);
+                          if (viewMode === 'global') {
+                            // Globe will fly-to the location first; switch to Mapbox after animation
+                            setTimeout(() => setViewMode('mapbox'), 2200);
+                          } else {
+                            setViewMode('mapbox');
+                          }
+                        }}
                         className={`flex items-center justify-between px-4 py-2.5 cursor-pointer border-b border-white/5 transition-all hover:bg-white/5 ${isSelected ? 'bg-white/10' : ''}`}
                       >
                         <div className="flex items-center gap-2">
@@ -220,7 +275,7 @@ function App() {
               </div>
             </div>
 
-            {/* RIGHT PANELS */}
+            {/* RIGHT PANELS — hide detail cards in mapbox mode, MapboxView has its own */}
             <div className="pointer-events-auto absolute right-6 top-6 flex flex-col gap-4 w-60">
 
               {/* Severity Distribution Bar Chart */}
@@ -254,22 +309,24 @@ function App() {
                 })}
               </div>
 
-              {/* Deployment Stats */}
-              <div className="bg-[#0b1628]/80 backdrop-blur-md border border-white/10 rounded-xl p-4">
-                <div className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-3">Deployment</div>
-                <div className="flex items-end justify-between">
-                  <div>
-                    <div className="text-2xl font-bold text-white">24 <span className="text-base text-gray-500 font-normal">/ 30</span></div>
-                    <div className="text-[11px] text-emerald-400 mt-1">↑ Units Active</div>
+              {/* Deployment Stats — hidden in mapbox mode to avoid collision with MapboxView card */}
+              {viewMode !== 'mapbox' && (
+                <div className="bg-[#0b1628]/80 backdrop-blur-md border border-white/10 rounded-xl p-4">
+                  <div className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-3">Deployment</div>
+                  <div className="flex items-end justify-between">
+                    <div>
+                      <div className="text-2xl font-bold text-white">24 <span className="text-base text-gray-500 font-normal">/ 30</span></div>
+                      <div className="text-[11px] text-emerald-400 mt-1">↑ Units Active</div>
+                    </div>
+                    <svg viewBox="0 0 60 30" className="w-20 h-10 stroke-emerald-400 fill-none stroke-[1.5] drop-shadow-[0_0_4px_rgba(52,211,153,0.5)]">
+                      <path d="M0,25 C10,22 15,8 25,12 C35,16 40,4 50,8 C55,10 58,5 60,3" />
+                    </svg>
                   </div>
-                  <svg viewBox="0 0 60 30" className="w-20 h-10 stroke-emerald-400 fill-none stroke-[1.5] drop-shadow-[0_0_4px_rgba(52,211,153,0.5)]">
-                    <path d="M0,25 C10,22 15,8 25,12 C35,16 40,4 50,8 C55,10 58,5 60,3" />
-                  </svg>
                 </div>
-              </div>
+              )}
 
-              {/* Selected outbreak detail */}
-              {selectedOutbreak && (
+              {/* Selected outbreak detail — hidden in mapbox mode (MapboxView shows its own card) */}
+              {selectedOutbreak && viewMode !== 'mapbox' && (
                 <div
                   className="bg-[#0b1628]/90 backdrop-blur-md border rounded-xl p-4"
                   style={{ borderColor: getSeverityColor(selectedOutbreak.severity) + '55' }}
@@ -295,7 +352,7 @@ function App() {
                     </div>
                   </div>
                   <button
-                    onClick={() => setViewMode('local')}
+                    onClick={() => setViewMode('mapbox')}
                     className="mt-3 w-full py-1.5 rounded-lg text-[11px] font-bold uppercase tracking-wider transition-all hover:opacity-90"
                     style={{ background: getSeverityColor(selectedOutbreak.severity) + '22', color: getSeverityColor(selectedOutbreak.severity), border: `1px solid ${getSeverityColor(selectedOutbreak.severity)}44` }}
                   >

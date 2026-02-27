@@ -16,12 +16,13 @@ const getSeverityHex = (severity) => {
     return '#3b82f6';
 };
 
-const Globe3D = () => {
+const Globe3D = ({ globeTheme = 'dark' }) => {
     const globeRef = useRef();
     const { outbreaks, selectedOutbreak, selectOutbreak, setViewMode } = useOutbreakStore();
     const [dimensions, setDimensions] = useState({ width: window.innerWidth, height: window.innerHeight });
     const isUserInteracting = useRef(false);
     const interactionTimer = useRef(null);
+    const flyTimer = useRef(null);
 
     // ─── Resize ───────────────────────────────────────────────
     useEffect(() => {
@@ -139,8 +140,8 @@ const Globe3D = () => {
           margin-top:8px;background:${col}22;border:1px solid ${col}55;
           color:${col};font-size:10px;font-weight:700;text-align:center;
           padding:4px 8px;border-radius:6px;letter-spacing:0.08em;cursor:pointer
-        " onclick="window._globePinClick && window._globePinClick(${JSON.stringify(d.id)})">
-          VIEW DETAIL →
+        ">
+          CLICK TO ZOOM IN →
         </div>
       </div>
     `;
@@ -150,13 +151,17 @@ const Globe3D = () => {
         el.addEventListener('mouseenter', () => { tooltip.style.opacity = '1'; });
         el.addEventListener('mouseleave', () => { tooltip.style.opacity = '0'; });
 
-        // click → select + fly-to
+        // click → fly to location → then transition to Mapbox
         el.addEventListener('click', (e) => {
             e.stopPropagation();
             selectOutbreak(d);
             if (globeRef.current) {
                 globeRef.current.controls().autoRotate = false;
-                globeRef.current.pointOfView({ lat: d.lat, lng: d.lng, altitude: 1.0 }, 1800);
+                globeRef.current.pointOfView({ lat: d.lat, lng: d.lng, altitude: 0.4 }, 1800);
+                clearTimeout(flyTimer.current);
+                flyTimer.current = setTimeout(() => {
+                    setViewMode('mapbox');
+                }, 2000);
             }
         });
 
@@ -178,14 +183,18 @@ const Globe3D = () => {
                     width={dimensions.width}
                     height={dimensions.height}
 
-                    // Premium night-earth textures
-                    globeImageUrl="//unpkg.com/three-globe/example/img/earth-night.jpg"
+                    // Textures — switch between night (dark) and Blue Marble (light)
+                    globeImageUrl={
+                        globeTheme === 'dark'
+                            ? '//unpkg.com/three-globe/example/img/earth-night.jpg'
+                            : '//unpkg.com/three-globe/example/img/earth-blue-marble.jpg'
+                    }
                     bumpImageUrl="//unpkg.com/three-globe/example/img/earth-topology.png"
                     backgroundImageUrl="//unpkg.com/three-globe/example/img/night-sky.png"
 
-                    // Atmosphere
-                    atmosphereColor="#1d4ed8"
-                    atmosphereAltitude={0.2}
+                    // Atmosphere — vibrant blue for light, electric blue for dark
+                    atmosphereColor={globeTheme === 'dark' ? '#1d4ed8' : '#38bdf8'}
+                    atmosphereAltitude={globeTheme === 'dark' ? 0.2 : 0.25}
 
                     // ── Heatmap hex bins ──────────────────────
                     hexBinPointsData={heatPoints}

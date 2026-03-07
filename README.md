@@ -15,7 +15,7 @@ Team members:
 - Somya Sudhir Nayak (lead)
 - Indrakanti Kevin 
 - Shaik Abid
-- Kantrpally Rishith
+- Kantrapally Rishith Goud
 
 ## Problem statement
 

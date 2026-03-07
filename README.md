@@ -13,7 +13,7 @@ Team name: RAGNAROK
 Team members:
 
 - Somya Sudhir Nayak (lead)
-- Indrakanti Kevin
+- Indrakanti Kevin 
 - Shaik Abid
 - Kantrpally Rishith
 
@@ -38,6 +38,16 @@ Rural Health Sentinel addresses these gaps by combining map-based situational aw
 - Treatment and stock usage logging from the van
 - Central resource availability updates (medicines and equipment) based on usage logs
 - Realtime refresh of doctor resources and treatment metrics via WebSockets
+
+## Outputs
+<img width="1919" height="871" alt="Screenshot 2026-03-07 225428" src="https://github.com/user-attachments/assets/d90989d1-1c8b-4939-b70e-0461a1d3566a" />
+<img width="1919" height="872" alt="Screenshot 2026-03-07 225504" src="https://github.com/user-attachments/assets/c959cb25-9632-4e60-83f7-1333fb42e451" />
+<img width="1919" height="1079" alt="Screenshot 2026-03-07 222215" src="https://github.com/user-attachments/assets/fe84274a-1581-4aa5-ac1d-54fb398a8840" />
+<img width="1919" height="1079" alt="Screenshot 2026-03-07 222235" src="https://github.com/user-attachments/assets/0e5a7265-c736-481c-b731-e58dcad20821" />
+<img width="1919" height="1079" alt="Screenshot 2026-03-07 222312" src="https://github.com/user-attachments/assets/842ac2b4-05f6-428e-a38a-b24f64b25843" />
+<img width="1919" height="1079" alt="Screenshot 2026-03-07 220933" src="https://github.com/user-attachments/assets/27fd464d-8481-479d-9bbb-ddc4eba61fc6" />
+
+
 
 ## High-level workflow
 
@@ -193,3 +203,4 @@ The backend exposes two WebSocket channels:
 ## Credits
 
 Built during KL University "HackwithAI" 24-hour hackathon by team RAGNAROK.
+

@@ -2,9 +2,13 @@ import React, { useRef, useEffect, useState } from 'react';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import useOutbreakStore from '../store/outbreakStore';
-import { ChevronLeft, X, AlertTriangle, Users, Activity } from 'lucide-react';
+import { ChevronLeft, X, AlertTriangle, Users, Activity, CheckCircle } from 'lucide-react';
+import { allocateVehicle } from '../lib/api';
 
-
+mapboxgl.accessToken =
+    import.meta.env.VITE_MAPBOX_PUBLIC_TOKEN ||
+    import.meta.env.VITE_MAPBOX_TOKEN ||
+    '';
 
 const getSeverityInfo = (sev) => {
     if (sev >= 80) return { color: '#ef4444', border: '#fca5a5', label: 'CRITICAL' };
@@ -42,7 +46,7 @@ const buildLandmarkEl = (o, onClick) => {
       color:#fff;font-size:11px;font-weight:600;text-align:center;max-width:90px;
       text-shadow:0 1px 4px rgba(0,0,0,0.9),0 0 8px rgba(0,0,0,0.8);
       white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
-    ">${o.locationName}</div>
+    ">${o.areaName || o.disease}</div>
   `;
 
     const circle = el.querySelector('div');
@@ -58,6 +62,42 @@ export default function MapboxView({ mapTheme = 'dark' }) {
     const markersRef = useRef([]);
     const { outbreaks, selectedOutbreak, selectOutbreak, setViewMode } = useOutbreakStore();
     const [selectedPin, setSelectedPin] = useState(selectedOutbreak || null);
+    const [allocating, setAllocating] = useState(false);
+    const [allocResult, setAllocResult] = useState(null); // { ok: bool, msg: string }
+
+
+    const drawRoute = (routeGeometry) => {
+        const map = mapRef.current;
+        if (!map || !routeGeometry || routeGeometry.type !== 'LineString') return;
+
+        const sourceId = 'allocated-route';
+        const layerId = 'allocated-route-line';
+        try {
+            if (map.getLayer(layerId)) map.removeLayer(layerId);
+            if (map.getSource(sourceId)) map.removeSource(sourceId);
+        } catch { }
+
+        map.addSource(sourceId, {
+            type: 'geojson',
+            data: {
+                type: 'Feature',
+                geometry: routeGeometry,
+                properties: {},
+            },
+        });
+        map.addLayer({
+            id: layerId,
+            type: 'line',
+            source: sourceId,
+            layout: { 'line-join': 'round', 'line-cap': 'round' },
+            paint: {
+                'line-color': '#22c55e',
+                'line-width': 5,
+                'line-opacity': 0.85,
+            },
+        });
+    };
+
 
     const isDark = mapTheme === 'dark';
 
@@ -252,7 +292,7 @@ export default function MapboxView({ mapTheme = 'dark' }) {
                                     style={{ background: pinInfo.color + '20', color: pinInfo.color, border: `1px solid ${pinInfo.color}40` }}
                                 >{pinInfo.label}</span>
                                 <h2 className="text-lg font-bold leading-tight truncate"
-                                    style={{ color: isDark ? '#f1f5f9' : '#0f172a' }}>{selectedPin.locationName}</h2>
+                                    style={{ color: isDark ? '#f1f5f9' : '#0f172a' }}>{selectedPin.areaName || selectedPin.disease}</h2>
                                 <p className="text-xs mt-0.5"
                                     style={{ color: isDark ? '#94a3b8' : '#475569' }}>{DISEASE_ICON[selectedPin.disease] ?? '⛑️'} {selectedPin.disease}</p>
                             </div>
@@ -316,12 +356,45 @@ export default function MapboxView({ mapTheme = 'dark' }) {
                             </div>
                         </div>
 
+                        {/* Alloc feedback */}
+                        {allocResult && (
+                            <div className="mb-2 flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-semibold"
+                                style={{
+                                    background: allocResult.ok ? 'rgba(34,197,94,0.12)' : 'rgba(239,68,68,0.12)',
+                                    border: `1px solid ${allocResult.ok ? 'rgba(34,197,94,0.3)' : 'rgba(239,68,68,0.3)'}`,
+                                    color: allocResult.ok ? '#4ade80' : '#f87171',
+                                }}>
+                                <CheckCircle size={12} />
+                                {allocResult.msg}
+                            </div>
+                        )}
+
                         {/* Actions */}
                         <div className="grid grid-cols-2 gap-2">
                             <button
+                                onClick={async () => {
+                                    if (allocating) return;
+                                    setAllocating(true);
+                                    setAllocResult(null);
+                                    try {
+                                        const res = await allocateVehicle(selectedPin.id);
+                                        const vehicleId = res?.assignment?.vehicle_id;
+                                        const route = res?.route?.route_geometry;
+                                        if (route) drawRoute(route);
+                                        setAllocResult({ ok: true, msg: vehicleId ? `Vehicle dispatched ✓ (${vehicleId})` : 'Vehicle dispatched ✓' });
+                                    } catch (err) {
+                                        setAllocResult({ ok: false, msg: err.message || 'Allocation failed' });
+                                    } finally {
+                                        setAllocating(false);
+                                    }
+                                }}
+                                disabled={allocating}
                                 className="py-2 rounded-xl text-[11px] font-bold uppercase tracking-wider hover:scale-[1.02] transition-all"
-                                style={{ background: pinInfo.color + '20', color: pinInfo.color, border: `1px solid ${pinInfo.color}40` }}
-                            >Allocate</button>
+                                style={{
+                                    background: pinInfo.color + '20', color: pinInfo.color, border: `1px solid ${pinInfo.color}40`,
+                                    opacity: allocating ? 0.6 : 1, cursor: allocating ? 'wait' : 'pointer'
+                                }}
+                            >{allocating ? 'Allocating…' : 'Allocate'}</button>
                             <button className="py-2 rounded-xl text-[11px] font-bold uppercase tracking-wider hover:scale-[1.02] transition-all"
                                 style={{
                                     background: isDark ? 'rgba(16,185,129,0.15)' : 'rgba(5,150,105,0.1)',

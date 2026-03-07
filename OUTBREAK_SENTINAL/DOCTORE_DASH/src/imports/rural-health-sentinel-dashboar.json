@@ -1,0 +1,251 @@
+Design a clean, minimal Doctor Dashboard UI for a “Rural Health Outbreak Sentinel System”.
+
+Style:
+
+Plain white background
+
+Clean 2D flat UI
+
+Soft shadows
+
+Rounded corners (8px)
+
+Minimal healthcare theme
+
+Light grey borders (#E5E7EB)
+
+Blue accent color (#2563EB)
+
+Red alert color (#DC2626)
+
+Inter font
+
+Professional hospital-grade interface
+
+Layout:
+
+Top Bar:
+
+Left: Logo + “Doctor Reporting Panel”
+
+Right: Doctor profile icon + Logout
+
+🗂 Tab Navigation (Top Section)
+
+Create 3 main tabs:
+
+1️⃣ Dashboard
+2️⃣ Treatment Status
+3️⃣ Local Resources
+
+Active tab highlighted with:
+
+Light blue background
+
+Blue underline indicator
+
+🏠 1️⃣ Dashboard Tab (Primary Report Entry)
+
+Section Title: “New Outbreak Report”
+
+Create a structured form layout with clean spacing.
+
+Form Fields:
+
+Disease Type (Dropdown)
+
+Malaria
+
+Dengue
+
+TB
+
+Cholera
+
+Custom option
+
+Number of Affected People (Numeric Input)
+
+Age Group Distribution (Multi-input field):
+
+Children (0–14)
+
+Adults (15–59)
+
+Elderly (60+)
+
+Date of First Outbreak (Date Picker)
+
+Symptoms Severity Level (Dropdown)
+
+Mild
+
+Moderate
+
+Severe
+
+Brief Doctor Notes (Multi-line text area)
+
+Add:
+
+Auto-save indicator (small grey text “Draft Saved”)
+
+Below form:
+Blue button: “Proceed to Location Selection”
+
+📍 2️⃣ Location Selection Section (Next Step Screen or Modal)
+
+Title: “Select Outbreak Location”
+
+Display large 2D white map:
+
+Map Style:
+
+White background
+
+Grey district boundaries
+
+Clean vector style
+
+Zoom in (+)
+
+Zoom out (-)
+
+Reset button
+
+Location Options:
+
+Option 1:
+Click on map to drop a red pinpoint marker
+
+Option 2:
+Search bar:
+“Search village or district”
+
+Option 3:
+Blue button:
+“Use My Current Location”
+
+When clicked:
+
+Show loading spinner
+
+Automatically drop marker at current GPS location
+
+Display coordinates below map
+
+Display below map:
+
+Latitude
+
+Longitude
+
+Selected Area Name
+
+Add:
+
+Small confirmation text:
+“Location will be used for mobile clinic routing and logistics.”
+
+Bottom Buttons:
+
+Back
+
+Submit Report (Primary Blue)
+
+💊 3️⃣ Treatment Status Tab
+
+Title: “Treatment Progress”
+
+Features:
+
+Table Layout:
+
+Patient Category
+
+Total Cases
+
+Treated
+
+Under Treatment
+
+Recovered
+
+Critical
+
+Add:
+
+Update Treatment Button
+
+Status dropdown per category
+
+Add small line graph:
+
+Daily recovery trend
+
+Add:
+Green indicator:
+“Treatment Ongoing”
+Red indicator:
+“Critical Shortage”
+
+🏥 4️⃣ Local Resources Tab
+
+Title: “Local Hospital Resources”
+
+Sections:
+
+Medicine Availability:
+
+Medicine name
+
+Stock count
+
+Low stock warning (red indicator)
+
+Equipment Availability:
+
+Oxygen units
+
+Beds
+
+Testing kits
+
+Ambulance availability
+
+Staff Availability:
+
+Doctors
+
+Nurses
+
+Volunteers
+
+Add:
+“Request Support from Admin” button
+
+Add:
+Small note:
+“Data synced with Indian Local Health System API”
+
+🔄 Interactions & Animations
+
+Tab switching animation
+
+Map marker drop animation
+
+Hover tooltip on marker
+
+Loading spinner for GPS fetch
+
+Smooth transitions between steps
+
+Design this interface using a fully responsive layout system that adapts seamlessly to:
+
+Desktop screens
+
+Tablets (iPad portrait and landscape)
+
+Mobile phones
+
+Use a flexible grid system (Auto Layout based), percentage widths, and scalable components so that the same structure can be reused for React and easily converted into React Native.

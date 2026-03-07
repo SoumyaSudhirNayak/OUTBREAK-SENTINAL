@@ -12,6 +12,21 @@ frontend/.vite/
 .env.local
 .env.*.local
 .env.production
+.env.*
+!.env.example
+
+# Dashboard build outputs (never commit)
+OUTBREAK_SENTINAL/**/dist/
+OUTBREAK_SENTINAL/**/.vite/
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.venv/
+venv/
 
 # Logs
 *.log

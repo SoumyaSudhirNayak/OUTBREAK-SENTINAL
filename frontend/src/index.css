@@ -15,11 +15,16 @@
 body {
   margin: 0;
   padding: 0;
-  overflow: hidden;
   background-color: var(--background-dark);
   color: #e2e8f0;
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
 }
+
+/* Only lock scroll in admin globe view */
+body.globe-mode {
+  overflow: hidden;
+}
+
 
 /* Glassmorphism utility */
 .glass-panel {

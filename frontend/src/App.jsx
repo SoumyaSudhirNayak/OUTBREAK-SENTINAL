@@ -1,26 +1,180 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Globe3D from './components/Globe3D';
 import LocalMap3D from './components/LocalMap3D';
 import MapboxView from './components/MapboxView';
-import { useSocket } from './hooks/useSocket';
+import Login from './pages/Login';
+import DoctorApp from './dashboards/doctor/DoctorApp';
+import VanApp from './dashboards/van/VanApp';
+import './dashboards/doctor/theme.css';
+import { supabase } from './lib/supabase';
 import {
   Activity, Bell, Compass, LayoutDashboard,
-  Settings, Map, Search, Monitor, AlertTriangle, ArrowLeft, Wifi, Sun, Moon
+  Settings, Map, Search, Monitor, AlertTriangle, ArrowLeft, Wifi, Sun, Moon, LogOut
 } from 'lucide-react';
 import useOutbreakStore from './store/outbreakStore';
 
 function App() {
-  useSocket();
+  const [session, setSession] = useState(undefined);
+  const [userRole, setUserRole] = useState(null); // 'admin' | 'doctor' | 'van'
+  const [authError, setAuthError] = useState('');
   const [mapTheme, setMapTheme] = useState('dark');
-  const [globeTheme, setGlobeTheme] = useState('dark');
+  const [globeTheme, setGlobeTheme] = useState('light');
   const {
     summary, realtimeUpdates, toggleRealtimeUpdates,
-    outbreaks, viewMode, setViewMode, selectedOutbreak, selectOutbreak
+    outbreaks, viewMode, setViewMode, selectedOutbreak, selectOutbreak,
+    fetchOutbreaks, subscribeRealtime, error: outbreaksError,
   } = useOutbreakStore();
 
-  const isDark = mapTheme === 'dark';
+  // ── Auth: detect session on mount ────────────────────────────────────────
+  useEffect(() => {
+    let cancelled = false;
 
+    (async () => {
+      try {
+        const { data } = await supabase.auth.getSession();
+        if (cancelled) return;
+        setAuthError('');
+        setSession(data?.session ?? null);
+        if (data?.session) resolveRole(data.session);
+      } catch (e) {
+        if (cancelled) return;
+        setAuthError(e?.message ? String(e.message) : String(e));
+        setSession(null);
+        setUserRole(null);
+      }
+    })();
+
+    let subscription;
+    try {
+      const res = supabase.auth.onAuthStateChange((_event, nextSession) => {
+        setAuthError('');
+        setSession(nextSession);
+        if (nextSession) resolveRole(nextSession);
+        else setUserRole(null);
+      });
+      subscription = res?.data?.subscription;
+    } catch (e) {
+      setAuthError(e?.message ? String(e.message) : String(e));
+    }
+
+    return () => {
+      cancelled = true;
+      try {
+        subscription?.unsubscribe();
+      } catch {}
+    };
+  }, []);
+
+  const resolveRole = (session) => {
+    const email = session?.user?.email || '';
+    const meta = session?.user?.user_metadata || {};
+    if (email === 'admin@outbreak-sentinel.com') { setUserRole('admin'); return; }
+    if (meta.role === 'doctor') { setUserRole('doctor'); return; }
+    if (meta.role === 'van') { setUserRole('van'); return; }
+    // Fallback: guess from email keyword
+    if (email.includes('doctor') || email.includes('dr')) { setUserRole('doctor'); return; }
+    setUserRole('van'); // default non-admin to van
+  };
+
+  // ── Data: fetch outbreaks + subscribe when admin is authenticated ─────────
+  useEffect(() => {
+    if (!session || userRole !== 'admin') return;
+    fetchOutbreaks();
+    const unsubscribe = subscribeRealtime();
+    return unsubscribe;
+  }, [session, userRole]);
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+  };
+
+  // Toggle body class so CSS locks scroll only in globe/admin mode
+  useEffect(() => {
+    if (userRole === 'admin') {
+      document.body.classList.add('globe-mode');
+    } else {
+      document.body.classList.remove('globe-mode');
+    }
+    return () => document.body.classList.remove('globe-mode');
+  }, [userRole]);
+
+  const isDark = mapTheme === 'dark';
   const criticalCount = outbreaks.filter(o => o.severity >= 80).length;
+
+
+  // ── Auth / loading gate ───────────────────────────────────────────────────
+  if (session === undefined) {
+    return (
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#060b1a' }}>
+        <div style={{ width: 40, height: 40, border: '3px solid rgba(0,243,255,0.2)', borderTopColor: '#00f3ff', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+      </div>
+    );
+  }
+  if (!session) {
+    return (
+      <>
+        <Login onAdminLogin={() => { }} />
+        {authError ? (
+          <div
+            style={{
+              position: 'fixed',
+              left: 16,
+              right: 16,
+              bottom: 16,
+              zIndex: 99999,
+              background: 'rgba(239, 68, 68, 0.12)',
+              border: '1px solid rgba(239, 68, 68, 0.35)',
+              color: '#fca5a5',
+              padding: '10px 12px',
+              borderRadius: 12,
+              backdropFilter: 'blur(12px)',
+              fontSize: 12,
+            }}
+          >
+            Auth error: {authError}
+          </div>
+        ) : null}
+      </>
+    );
+  }
+
+  // ── Role-based rendering ──────────────────────────────────────────────────
+  if (userRole === 'doctor') {
+    return (
+      <div style={{ minHeight: '100vh', overflowY: 'auto' }}>
+        <DoctorApp />
+        {/* Floating sign-out chip */}
+        <button onClick={handleLogout}
+          style={{
+            position: 'fixed', bottom: 20, right: 20, zIndex: 9999,
+            padding: '8px 16px', borderRadius: 30, background: 'rgba(239,68,68,0.15)',
+            border: '1px solid rgba(239,68,68,0.3)', color: '#f87171',
+            fontSize: 12, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6,
+            backdropFilter: 'blur(12px)'
+          }}>
+          <LogOut size={12} /> Sign Out
+        </button>
+      </div>
+    );
+  }
+  if (userRole === 'van') {
+    return (
+      <div style={{ minHeight: '100vh', overflowY: 'auto' }}>
+        <VanApp />
+        <button onClick={handleLogout}
+          style={{
+            position: 'fixed', bottom: 24, left: '50%', transform: 'translateX(-50%)', zIndex: 9999,
+            padding: '8px 18px', borderRadius: 30, background: 'rgba(239,68,68,0.15)',
+            border: '1px solid rgba(239,68,68,0.3)', color: '#f87171',
+            fontSize: 12, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6,
+            backdropFilter: 'blur(12px)'
+          }}>
+          <LogOut size={12} /> Sign Out
+        </button>
+      </div>
+    );
+  }
 
   const getSeverityColor = (sev) => {
     if (sev >= 80) return '#ef4444';
@@ -100,6 +254,24 @@ function App() {
         {/* ───────────────── MAIN CONTENT ───────────────── */}
         <div className="flex-1 flex flex-col h-full relative">
 
+          {outbreaksError ? (
+            <div className="pointer-events-auto absolute top-20 left-1/2 -translate-x-1/2 z-50 max-w-[90vw]">
+              <div
+                style={{
+                  background: 'rgba(239, 68, 68, 0.12)',
+                  border: '1px solid rgba(239, 68, 68, 0.35)',
+                  color: '#fca5a5',
+                  padding: '10px 12px',
+                  borderRadius: 12,
+                  backdropFilter: 'blur(12px)',
+                  fontSize: 12,
+                }}
+              >
+                Failed to load outbreaks: {outbreaksError}
+              </div>
+            </div>
+          ) : null}
+
           {/* ── TOP NAV ── */}
           <div className="pointer-events-auto flex items-center justify-between px-8 h-16 border-b border-white/5 backdrop-blur-sm bg-[#07101e]/40">
             <div className="flex items-center gap-3">
@@ -156,10 +328,10 @@ function App() {
                 <span>/</span>
                 <span className="hover:text-white cursor-pointer">Regions</span>
                 {viewMode === 'mapbox' && (
-                  <><span>/</span><span className="text-cyan-400">{selectedOutbreak?.locationName || 'City View'}</span></>
+                  <><span>/</span><span className="text-cyan-400">                {selectedOutbreak?.areaName || 'City View'}</span></>
                 )}
                 {viewMode === 'local' && (
-                  <><span>/</span><span className="text-blue-400">{selectedOutbreak?.locationName || 'Local'}</span></>
+                  <><span>/</span><span className="text-blue-400">                {selectedOutbreak?.areaName || 'Local'}</span></>
                 )}
               </div>
             </div>
@@ -183,6 +355,14 @@ function App() {
                   <span className="text-emerald-400 font-semibold">LIVE</span>
                 </div>
               </div>
+              {/* Logout */}
+              <button
+                onClick={handleLogout}
+                title="Sign out"
+                className="p-2 rounded-lg text-gray-400 hover:text-red-400 hover:bg-red-500/10 transition-all"
+              >
+                <LogOut size={16} />
+              </button>
             </div>
           </div>
 
@@ -252,7 +432,7 @@ function App() {
                             }}
                           />
                           <div>
-                            <div className="text-xs font-medium text-gray-200">{o.locationName}</div>
+                            <div className="text-xs font-medium text-gray-200">{o.areaName || o.disease}</div>
                             <div className="text-[10px] text-gray-500">{o.disease}</div>
                           </div>
                         </div>
@@ -337,7 +517,7 @@ function App() {
                   >
                     Selected Zone
                   </div>
-                  <div className="text-sm font-semibold text-white mb-1">{selectedOutbreak.locationName}</div>
+                  <div className="text-sm font-semibold text-white mb-1">{selectedOutbreak.areaName || selectedOutbreak.disease}</div>
                   <div className="text-xs text-gray-400 mb-3">{selectedOutbreak.disease}</div>
                   <div className="grid grid-cols-2 gap-2 text-xs">
                     <div className="bg-white/5 rounded-lg p-2">

@@ -23,6 +23,7 @@ const Globe3D = ({ globeTheme = 'dark' }) => {
     const isUserInteracting = useRef(false);
     const interactionTimer = useRef(null);
     const flyTimer = useRef(null);
+    const introTimers = useRef([]);
 
     // ─── Resize ───────────────────────────────────────────────
     useEffect(() => {
@@ -33,18 +34,67 @@ const Globe3D = ({ globeTheme = 'dark' }) => {
         return () => window.removeEventListener('resize', handleResize);
     }, []);
 
-    // ─── Initial camera + auto-rotate ─────────────────────────
-    useEffect(() => {
-        if (!globeRef.current) return;
-        const ctrl = globeRef.current.controls();
+    // ─── Cinematic intro — triggered by onGlobeReady ───────────
+    // (onGlobeReady fires only once the Three.js scene is set up,
+    //  so the globe is guaranteed to be visible on screen first)
+    const handleGlobeReady = useCallback(() => {
+        const g = globeRef.current;
+        if (!g) return;
+
+        const ctrl = g.controls();
         ctrl.autoRotate = true;
-        ctrl.autoRotateSpeed = 0.4;
+        ctrl.autoRotateSpeed = 3.0;   // fast spin while globe is small
         ctrl.enableDamping = true;
-        ctrl.dampingFactor = 0.08;
+        ctrl.dampingFactor = 0.06;
         ctrl.enableZoom = true;
         ctrl.minDistance = 150;
         ctrl.maxDistance = 600;
-        globeRef.current.pointOfView({ altitude: 2.2 });
+
+        // One rendered frame first, then snap camera far out
+        requestAnimationFrame(() => {
+            g.pointOfView({ altitude: 10 });
+
+            // ── Zoom animation via RAF ──────────────────────────────
+            // Using RAF instead of pointOfView(duration) so autoRotate
+            // can run simultaneously (pointOfView with duration locks camera)
+            const HOLD_MS = 2000;  // sit at altitude 10 for 2 seconds
+            const ZOOM_MS = 3000;  // then zoom over 3 seconds
+            const START_ALT = 10;
+            const END_ALT = 1.8;
+            const easeInOut = t => t < 0.5
+                ? 2 * t * t
+                : 1 - Math.pow(-2 * t + 2, 2) / 2;
+
+            const zoomBegin = Date.now() + HOLD_MS;
+
+            const tick = () => {
+                const elapsed = Date.now() - zoomBegin;
+                if (elapsed < 0) { requestAnimationFrame(tick); return; }
+
+                const progress = Math.min(elapsed / ZOOM_MS, 1);
+                const alt = START_ALT + (END_ALT - START_ALT) * easeInOut(progress);
+                g.pointOfView({ altitude: alt });
+
+                // Decelerate spin from 3.0 → 0.25 as zoom progresses
+                const spinSpeed = 3.0 + (0.25 - 3.0) * easeInOut(progress);
+                if (g.controls) g.controls().autoRotateSpeed = spinSpeed;
+
+                if (progress < 1) {
+                    requestAnimationFrame(tick);
+                } else {
+                    // Zoom done — ramp rotation up to normal cruising speed
+                    let speed = 0.25;
+                    const iv = setInterval(() => {
+                        speed = Math.min(speed + 0.01, 0.45);
+                        if (g.controls) g.controls().autoRotateSpeed = speed;
+                        if (speed >= 0.45) clearInterval(iv);
+                    }, 80);
+                    introTimers.current.push(iv);
+                }
+            };
+
+            requestAnimationFrame(tick);
+        });
     }, []);
 
     // ─── Pause rotation on interaction, resume after idle ────
@@ -182,6 +232,7 @@ const Globe3D = ({ globeTheme = 'dark' }) => {
                     ref={globeRef}
                     width={dimensions.width}
                     height={dimensions.height}
+                    onGlobeReady={handleGlobeReady}
 
                     // Textures — switch between night (dark) and Blue Marble (light)
                     globeImageUrl={
